@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_todolist/tab_item.dart';
-import 'package:flutter_todolist/todo/todo_list.dart';
+import 'package:flutter_todolist/screens/todo/todo_list.dart';
 
 void main() {
   runApp(TodoListApp());
