@@ -1,4 +1,7 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_todolist/database/dao/todo_dao.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_todolist/models/todo_model.dart';
 
@@ -11,8 +14,14 @@ class _TodoListPageState extends State<TodoListPage> {
   static const String TODO_DATE_FORMAT = "yyy-MM-dd";
 
   final TextEditingController _todoTitleController = TextEditingController();
-
+  final TodoDao _todoDao = TodoDao();
   List<TodoModel> _todoList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodoList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -150,10 +159,17 @@ class _TodoListPageState extends State<TodoListPage> {
     );
   }
 
-  void _addNewTodo(String title) {
-    TodoModel newTodo = TodoModel(title, DateTime.now());
+  void _addNewTodo(String title) async {
+    TodoModel newTodo = TodoModel(null, title, DateTime.now(), TodoState.todo);
+    await _todoDao.createTodo(newTodo);
+    _loadTodoList();
+  }
+
+  void _loadTodoList() async {
+    List<TodoModel> newList = await _todoDao.getTodoList();
+
     setState(() {
-      _todoList.add(newTodo);
+      this._todoList = newList;
     });
   }
 }
