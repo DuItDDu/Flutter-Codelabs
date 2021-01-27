@@ -1,51 +1,60 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_todolist/bloc/todo_bloc.dart';
 import 'package:flutter_todolist/database/dao/todo_dao.dart';
+import 'package:flutter_todolist/repository/todo_repository.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_todolist/models/todo_model.dart';
 
-class TodoListPage extends StatefulWidget {
-  @override
-  State<StatefulWidget> createState() => _TodoListPageState();
-}
-
-class _TodoListPageState extends State<TodoListPage> {
+class TodoListPage extends StatelessWidget {
   static const String TODO_DATE_FORMAT = "yyy-MM-dd";
 
   final TextEditingController _todoTitleController = TextEditingController();
-  final TodoDao _todoDao = TodoDao();
-  List<TodoModel> _todoList = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTodoList();
-  }
+  final TodoBloc _todoBloc = TodoBloc(
+      TodoRepository(
+          TodoDao()
+      )
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: _createFloatingActionButton(),
+      floatingActionButton: _createFloatingActionButton(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
-      body: _createTodoList(),
+      body: _createTodoListStreamBuilder(),
     );
   }
 
-  Widget _createFloatingActionButton() {
+  Widget _createFloatingActionButton(BuildContext context) {
     return FloatingActionButton(
       child: Icon(Icons.add, color: Colors.white),
       onPressed: () => {
-        _openAddTodoDialog()
+        _openAddTodoDialog(context)
       },
     );
   }
 
-  Widget _createTodoList() {
+  Widget _createTodoListStreamBuilder() {
+    return StreamBuilder(
+        stream: _todoBloc.todoListStream,
+        builder: (BuildContext context, AsyncSnapshot<List<TodoModel>> snapshot) {
+          if (snapshot.hasData) {
+            if (snapshot.data.length > 0) {
+              return _createTodoList(snapshot.data);
+            } else {
+              return Container();
+            }
+          } else {
+            return Container();
+          }
+        }
+    );
+  }
+
+  Widget _createTodoList(List<TodoModel> todoList) {
     return ListView.separated(
-      itemCount: _todoList.length,
+      itemCount: todoList.length,
       itemBuilder: (BuildContext context, int index) {
-        return _createTodoCard(_todoList[index]);
+        return _createTodoCard(todoList[index]);
       },
       separatorBuilder: (BuildContext context, int index) {
         return Divider(
@@ -84,11 +93,11 @@ class _TodoListPageState extends State<TodoListPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          todoModel.getTitle(),
-          style: TextStyle(
-            fontSize: 24.0, 
-            color: Colors.blue
-          )
+            todoModel.getTitle(),
+            style: TextStyle(
+                fontSize: 24.0,
+                color: Colors.blue
+            )
         ),
         Divider(
           thickness: 8.0,
@@ -96,81 +105,73 @@ class _TodoListPageState extends State<TodoListPage> {
           color: Colors.transparent,
         ),
         Text(
-          DateFormat(TODO_DATE_FORMAT).format(todoModel.getCreatedTime()),
-          style: TextStyle(
-            fontSize: 18.0, 
-            color: Colors.blueGrey
-          )
+            DateFormat(TODO_DATE_FORMAT).format(todoModel.getCreatedTime()),
+            style: TextStyle(
+                fontSize: 18.0,
+                color: Colors.blueGrey
+            )
         )
       ],
     );
   }
 
-  void _openAddTodoDialog() {
+  void _openAddTodoDialog(BuildContext context) {
     showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10.0)
-          ),
-          title: Text(
-            "할일을 입력해주세요.",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 24.0,
-              color: Colors.blue
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0)
             ),
-          ),
-          content: TextField(
-            controller: _todoTitleController,
-          ),
-          actions: [
-            FlatButton(
-              child: new Text(
-                "취소",
-                style: TextStyle(
-                  fontSize: 16.0,
-                  color: Colors.red
-                ),
-              ),
-              onPressed: () {
-                _todoTitleController.text = "";
-                Navigator.pop(context);
-              },
-            ),
-            FlatButton(
-              child: new Text(
-                "추가",
-                style: TextStyle(
-                  fontSize: 16.0,
+            title: Text(
+              "할일을 입력해주세요.",
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24.0,
                   color: Colors.blue
-                ),
               ),
-              onPressed: () {
-                _addNewTodo(_todoTitleController.text);
-                _todoTitleController.text = "";
-                Navigator.pop(context);
-              },
             ),
-          ],
-        );
-      }
+            content: TextField(
+              controller: _todoTitleController,
+            ),
+            actions: [
+              FlatButton(
+                child: new Text(
+                  "취소",
+                  style: TextStyle(
+                      fontSize: 16.0,
+                      color: Colors.red
+                  ),
+                ),
+                onPressed: () {
+                  _todoTitleController.text = "";
+                  Navigator.pop(context);
+                },
+              ),
+              FlatButton(
+                child: new Text(
+                  "추가",
+                  style: TextStyle(
+                      fontSize: 16.0,
+                      color: Colors.blue
+                  ),
+                ),
+                onPressed: () {
+                  _addNewTodo(_todoTitleController.text);
+                  _todoTitleController.text = "";
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        }
     );
   }
 
   void _addNewTodo(String title) async {
     TodoModel newTodo = TodoModel(null, title, DateTime.now(), TodoState.todo);
-    await _todoDao.createTodo(newTodo);
-    _loadTodoList();
-  }
-
-  void _loadTodoList() async {
-    List<TodoModel> newList = await _todoDao.getTodoList();
-
-    setState(() {
-      this._todoList = newList;
-    });
+    _todoBloc.addTodo(newTodo);
   }
 }
+
 
